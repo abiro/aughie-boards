@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-129393343-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-129393343-1');
+    </script>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <meta name="description" content="Pastebin for TensorBoard">
+    <meta name="author" content="Aughie">
+    <meta name="robots" content="index, follow" />
+    <meta name="keywords" content="tensorboard, pastebin, hosting, upload" />
+
+    <link rel="canonical" href="http://boards.aughie.org/" />
+
+    <title>Aughie Boards</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+    <!-- Custom styles for this template -->
+    <style>
+      body {
+        padding-top: 5rem;
+      }
+      .starter-template {
+        padding: 3rem 1.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+      <a class="navbar-brand" href="#">Aughie Boards</a>
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="https://github.com/aughie/boards" target="_blank">Github</a>
+        </li>
+      </ul>
+    </nav>
+
+    <main role="main" class="container">
+
+      <div class="row">
+        <div class="col-lg-8 offset-lg-2 col-md-10 offset-md-1">
+          <div class="starter-template">
+            <h1>Pastebin for TensorBoard</h1>
+            <p class="lead">Upload your log directory and get a unique link to a hosted TensorBoard instance serving your data. Here is how it works:</p>
+            <ol>
+              <li>Create a zip or a tar archive of your <a href="https://www.tensorflow.org/guide/summaries_and_tensorboard#launching_tensorboard" target="_blank">TensorBoard log directory.</a> Max compressed size is 50 MB.</li>
+              <li>Select your archive in the file browser below and click upload.</li>
+              <li>After your upload succeeded, your TensorBoard instance will be available at the displayed link.</li>
+              <li>By clicking upload, you accept the <a href="terms.html">Terms of Service.</a></li>
+            </ol>
+          </div>
+
+          <div class="input-group mb-3">
+            <div class="custom-file">
+              <input id="customFile" class="custom-file-input" type="file" accept="application/zip,application/gzip,application/x-tar,application/x-tar+gzip">
+              <label id="fileInfo" class="custom-file-label" for="customFile">Choose file</label>
+            </div>
+            <div class="input-group-append">
+                <button id="uploadButton" class="btn btn-primary" type="button">Upload</button>
+            </div>
+          </div>
+
+          <div id="uploadErrorMsg" class="d-none alert alert-danger" role="alert">
+              Failed to upload file: "file_name.zip".
+          </div>
+
+          <div id="launchingMsg" class="d-none alert alert-success" role="alert">
+              Upload succeeded. Your TensorBoard instance is launching at:<br> <a href="https://boards.aughie.org/board/example" target="_blank">https://boards.aughie.org/board/example/</a>
+          </div>
+
+
+        </div>
+      </div>
+    </main><!-- /.container -->
+
+  </body>
+
+  <script>
+    (function() {
+      'use strict';
+
+      const UPLOAD_LINK_API = 'https://boards-api.aughie.org/v1/board/uploadLink';
+
+      const fileInput = document.getElementById('customFile');
+      const fileInfo = document.getElementById('fileInfo');
+      const uploadButton = document.getElementById('uploadButton');
+      const uploadErrorMsg = document.getElementById('uploadErrorMsg');
+      const launchingMsg = document.getElementById('launchingMsg');
+
+      function addUploadErrorMsg(fileName) {
+        uploadErrorMsg.innerHTML = `Failed to upload file: "${fileName}".`;
+        uploadErrorMsg.classList.remove('d-none');
+      }
+
+      function addSuccessMsg(boardUrl) {
+        launchingMsg.innerHTML = `
+        Upload succeeded. Your TensorBoard instance is launching at:<br> <a href="${boardUrl}" target="_blank">${boardUrl}</a>`;
+
+        launchingMsg.classList.remove('d-none');
+      }
+      
+      function getSignedUrl(fileName) {
+        return fetch(UPLOAD_LINK_API, {
+          method: 'POST',
+          body: JSON.stringify({fileName}),
+          headers:{
+            'Content-Type': 'application/json'
+          }
+        }).then(res => res.json());
+      }
+
+      function resetMessages() {
+        uploadErrorMsg.classList.add('d-none');
+        launchingMsg.classList.add('d-none');
+      }
+
+      function removeUploading() {
+        uploadButton.removeAttribute('disabled');
+        uploadButton.innerText = 'Upload';
+      }
+
+      function setUploading() {
+        uploadButton.setAttribute('disabled', '');
+        uploadButton.innerText = 'Uploading...';
+      }
+
+      function uploadFile(url, fields, file) {
+        const formData = new FormData();
+        // Meta fields
+        for (let key in fields) {
+          formData.append(key, fields[key]);
+        }
+        formData.append('file', file);
+
+        return fetch(url, {
+          method: 'POST',
+          body: formData
+        }).then(res => {
+          if (res.ok) {
+            return res
+          } else {
+            throw new Error(res);
+          }
+        });
+      }
+
+      fileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        fileInfo.innerText = file.name;
+
+        return false;
+      });
+
+      uploadButton.addEventListener('click', e => {
+        const file = fileInput.files[0];
+        if (!file || uploadButton.hasAttribute('disabled')) {
+          return false;
+        }
+
+        resetMessages();
+        setUploading();
+
+        getSignedUrl(file.name)
+          .then(res => {
+            return uploadFile(res.upload.url, res.upload.fields, file).then(() => res.board_url);
+          })
+          .then(addSuccessMsg)
+          .catch(e => {
+            console.error(e.message);
+            addUploadErrorMsg(file.name);
+          })
+          .then(removeUploading);
+
+        return false;
+      });
+
+    })();
+  </script>
+</html>
