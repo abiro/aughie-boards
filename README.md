@@ -1,4 +1,4 @@
-# Aughie Boards
+# Aughie Boards [DEPRECATED]
 
 
 Aughie Boards is a pastebin service for TensorBoard. 
